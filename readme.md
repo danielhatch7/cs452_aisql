@@ -1,64 +1,60 @@
 # Meal Plan
 
-My project models data that someone running a dog show might find useful. Includes contact information about people and relevant information about the dogs.
+My project models data used to make and build meal plans. It includes information about the recipes in a meal plan, their ingredients, and the person who created the recipe/meal plan.
 
 <img src="myschema.png">
 
 ## Query I thought it did well on
 
-**Question**: What are the names and cities of the dogs who have awards?
+**Question**: Which recipes fall under the 'Easy' difficulty category?
 
 **GPT SQL Response**:
 
 ```sql
-SELECT d.name AS dog_name, z.city
-FROM dog d
-JOIN award a ON d.dog_id = a.dog_id
-JOIN person_dog pd ON d.dog_id = pd.dog_id
-JOIN person p ON pd.person_id = p.person_id
-JOIN address ad ON p.person_id = ad.person_id
-JOIN zip z ON ad.zip = z.zip;
+SELECT recipe_name
+FROM recipe
+WHERE difficulty = 'Easy';
 ```
 
-**Friendly Response**: The award-winning dogs are Buddy from New York and Bella from Washington.
+**Friendly Response**: Sure! Here are some easy recipes: Spaghetti Bolognese, Vegetable Stir Fry, Greek Salad, Banana Pancakes, Ice Cream, Pizza, Fruit Salad, Caesar Salad, and Frog Eye Salad.
 
 ## Question that it tripped up on
 
-It did the SQL part almost right, but didn't quite get the data back in a friendly way. I wanted to know that we wouldn't be able to text/SMS "Bob Jones" who is person id 2 in my database. It returned an id and then couldn't tell me what I wanted to know.
+I don't think this is totally fair to blame this completely on ChatGPT for missing this one. I was unfair in my question by asking it to find specific requirements for a meal plan without prompting it as to which meal plan I wanted. In the sql it provided, it left a comment to replace a var with the specific mealplan_id which is why it never got a good result in the first place.
 
-Question: Will we have a problem texting any of the previous award winners?
+Question: What are the total quantities of each ingredient required for a specific meal plan?
 
 **GPT SQL Response**:
 
 ```sql
-SELECT DISTINCT phone.person_id, phone.can_recieve_sms
-FROM award
-JOIN dog ON award.dog_id = dog.dog_id
-JOIN person_dog ON dog.dog_id = person_dog.dog_id
-JOIN phone ON person_dog.person_id = phone.person_id
-WHERE phone.can_recieve_sms = 0;
+SELECT i.ingredient_name, SUM(ri.quantity) AS total_quantity, ri.units
+FROM mealplan mp
+JOIN mealplanrecipe mpr ON mp.mealplan_id = mpr.mealplan_id
+JOIN recipe r ON mpr.recipe_id = r.recipe_id
+JOIN recipeingredient ri ON r.recipe_id = ri.recipe_id
+JOIN ingredient i ON ri.ingredient_id = i.ingredient_id
+WHERE mp.mealplan_id = ? -- Replace with specific mealplan_id
+GROUP BY i.ingredient_id, ri.units;
 ```
 
-SQL Result is just "IDs": [(2, 0)]
+SQL Result is just [('Ground Beef',), ('Vegetables',)]
 
-**Friendly response**: Yes, we might encounter problems texting previous award winners due to potential privacy or contact restrictions.
+**Friendly response**: Ingredients used in multiple recipes include ground beef and vegetables.
 
-The generic response really didn't have anything to do with my data. I would have preferred it to say something like, "we can't text Bob Jones, whose dog previously won such-a-such award".
+The response didn't mention anything about quantities. To be fair though, it did find ingredients that were used in multiple recipes which is pretty similar train of thought though.
 
-I think I could probably get the answer I'm looking for with a different prompting strategy. I used zero_shot and will try this question again with single domain but gave it an example question answer from a previous question that it succeeded on with asking who didn't have texting capapbility.
+I think I could probably get the answer I'm looking for by telling it in the initial prompt which meal plan I specifically wanted to get the total quantities of ingredients for.
 
 ## Multi-shot
 
-It successfully added the "name", however it ironically inverted the logic! "Bob Jones" was the only one who had a winning dog and didn't have an SMS capable phone in the system.
+The multi shot approach unfortunately did not improve on the results from the previous question. I wanted the AI to randomly pick a meal plan without being prompted as to which specific meal plan I want information about.
 
-**Question (multi-shot)**: Will we have a problem texting any of the previous award winners?
+**Question (multi-shot)**: What are the total quantities of each ingredient required for a specific meal plan?
 
-SQL Result is just "IDs": [(2, 'Bob Jones')]
+SQL Result is just [('Ground Beef',), ('Vegetables',)]
 
-**Friendly response**: No problem, you won't have issues texting Bob Jones.
-
-The multi-shot prompt made it worse for this question. In both cases (single and multi) though it did seem to be querying the correct data, it just didn't interpret the results correctly.
+**Friendly response**: Ground beef and vegetables.
 
 ## Conclusion
 
-My findings is that for fairly simple joins chatgpt 4 preview does well at creating SQL queries. This could be useful for data engineers. Actually having a chat interface for non-engineers has issues and could give completely inaccurate answers.
+Both strategies performed well for straight forward queries involving single table questions or simple joins. The single-domain double-shot strategy was slightly better on some of the complex questions, but not much better on most. It would probably perform even better if there were more refinement in the prompts. It was more reliable for queries where it was helpful to have more context.
