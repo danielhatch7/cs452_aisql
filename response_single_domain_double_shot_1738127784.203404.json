@@ -1,0 +1,83 @@
+{
+  "strategy": "single_domain_double_shot",
+  "prompt_prefix": "CREATE TABLE user (\n    user_id INTEGER PRIMARY KEY,\n    first_name TEXT NOT NULL,\n    last_name TEXT NOT NULL\n);\n\nCREATE TABLE recipe (\n    recipe_id INTEGER PRIMARY KEY,\n    user_id INTEGER NOT NULL,\n    recipe_name TEXT NOT NULL,\n    category TEXT,\n    difficulty TEXT,\n    prep_time INTEGER, \n    cook_time INTEGER, \n    instructions TEXT,\n    FOREIGN KEY (user_id) REFERENCES user (user_id)\n);\n\nCREATE TABLE ingredient (\n    ingredient_id INTEGER PRIMARY KEY,\n    ingredient_name TEXT NOT NULL,\n    category TEXT\n);\n\nCREATE TABLE recipeingredient (\n    recipeingredient_id INTEGER PRIMARY KEY,\n    recipe_id INTEGER NOT NULL,\n    ingredient_id INTEGER NOT NULL,\n    quantity REAL NOT NULL, \n    units TEXT NOT NULL, \n    FOREIGN KEY (recipe_id) REFERENCES recipe (recipe_id),\n    FOREIGN KEY (ingredient_id) REFERENCES ingredient (ingredient_id)\n);\n\nCREATE TABLE mealplan (\n    mealplan_id INTEGER PRIMARY KEY,\n    mealplan_name TEXT NOT NULL,\n    user_id INTEGER NOT NULL,\n    start_date DATE NOT NULL,\n    end_date DATE NOT NULL,\n    FOREIGN KEY (user_id) REFERENCES user (user_id)\n);\n\nCREATE TABLE mealplanrecipe (\n    mealplanrecipe_id INTEGER PRIMARY KEY,\n    mealplan_id INTEGER NOT NULL,\n    recipe_id INTEGER NOT NULL,\n    FOREIGN KEY (mealplan_id) REFERENCES mealplan (mealplan_id),\n    FOREIGN KEY (recipe_id) REFERENCES recipe (recipe_id)\n);Which recipes take the longest to cook?\nSELECT recipe_name\nFROM recipe\nORDER BY cook_time DESC\nLIMIT 1;\n Give me a sqlite select statement that answers the question. Only respond with sqlite syntax. If there is an error do not explain it!",
+  "questionResults": [
+    {
+      "question": "Which recipes take the longest to cook?",
+      "sql": "\nSELECT recipe_name\nFROM recipe\nORDER BY cook_time DESC\nLIMIT 1;\n",
+      "queryRawResponse": "[('Spaghetti Bolognese',)]",
+      "friendlyResponse": "Spaghetti Bolognese is one of the longest to cook!",
+      "error": "None"
+    },
+    {
+      "question": "What are the most common categories of recipes?",
+      "sql": "\nSELECT category, COUNT(*) AS count\nFROM recipe\nGROUP BY category\nORDER BY count DESC;\n",
+      "queryRawResponse": "[('Salad', 4), ('Main Dish', 2), ('Vegetarian', 1), ('Pasta', 1), ('Mexican', 1), ('Dessert', 1), ('Breakfast', 1)]",
+      "friendlyResponse": "The most common recipe categories are salads, main dishes, vegetarian, pasta, Mexican, dessert, and breakfast.",
+      "error": "None"
+    },
+    {
+      "question": "Which users have written the most recipes?",
+      "sql": "\nSELECT first_name, last_name, COUNT(recipe_id) AS recipe_count\nFROM user\nJOIN recipe ON user.user_id = recipe.user_id\nGROUP BY user.user_id\nORDER BY recipe_count DESC\nLIMIT 1;\n",
+      "queryRawResponse": "[('Sydney', 'Smith', 4)]",
+      "friendlyResponse": "Sydney Smith has written the most recipes, with a total of 4.",
+      "error": "None"
+    },
+    {
+      "question": "What is the average prep time for all recipes?",
+      "sql": "\nSELECT AVG(prep_time) AS average_prep_time\nFROM recipe;\n",
+      "queryRawResponse": "[(12.727272727272727,)]",
+      "friendlyResponse": "The average prep time for all recipes is approximately 12.7 minutes.",
+      "error": "None"
+    },
+    {
+      "question": "What are the ingredients needed for 'Spaghetti Bolognese'?",
+      "sql": "\nSELECT i.ingredient_name, ri.quantity, ri.units\nFROM recipe r\nJOIN recipeingredient ri ON r.recipe_id = ri.recipe_id\nJOIN ingredient i ON ri.ingredient_id = i.ingredient_id\nWHERE r.recipe_name = 'Spaghetti Bolognese';\n",
+      "queryRawResponse": "[('Spaghetti', 200.0, 'grams'), ('Ground Beef', 300.0, 'grams'), ('Tomato Sauce', 250.0, 'ml')]",
+      "friendlyResponse": "You'll need 200g of spaghetti, 300g of ground beef, and 250ml of tomato sauce.",
+      "error": "None"
+    },
+    {
+      "question": "Which ingredients are used in multiple recipes?",
+      "sql": "\nSELECT ingredient_name\nFROM ingredient\nWHERE ingredient_id IN (\n    SELECT ingredient_id\n    FROM recipeingredient\n    GROUP BY ingredient_id\n    HAVING COUNT(DISTINCT recipe_id) > 1\n);\n",
+      "queryRawResponse": "[('Ground Beef',), ('Vegetables',)]",
+      "friendlyResponse": "Ground beef and vegetables.",
+      "error": "None"
+    },
+    {
+      "question": "What are the total quantities of each ingredient required for a specific meal plan?",
+      "sql": "\nSELECT i.ingredient_name, SUM(ri.quantity) AS total_quantity, ri.units\nFROM mealplanrecipe mr\nJOIN recipeingredient ri ON mr.recipe_id = ri.recipe_id\nJOIN ingredient i ON ri.ingredient_id = i.ingredient_id\nWHERE mr.mealplan_id = ?\nGROUP BY i.ingredient_name, ri.units;\n",
+      "queryRawResponse": "[('Ground Beef',), ('Vegetables',)]",
+      "friendlyResponse": "Ground beef and vegetables.",
+      "error": "Incorrect number of bindings supplied. The current statement uses 1, and there are 0 supplied."
+    },
+    {
+      "question": "What are the recipes written by Bob Jones?",
+      "sql": "\nSELECT recipe_name\nFROM recipe\nJOIN user ON recipe.user_id = user.user_id\nWHERE user.first_name = 'Bob' AND user.last_name = 'Jones';\n",
+      "queryRawResponse": "[('Chicken Curry',)]",
+      "friendlyResponse": "Bob Jones's recipe: Chicken Curry.",
+      "error": "None"
+    },
+    {
+      "question": "What are the most popular ingredients by recipe count?",
+      "sql": "\nSELECT ingredient.ingredient_name, COUNT(recipeingredient.recipe_id) AS recipe_count\nFROM ingredient\nJOIN recipeingredient ON ingredient.ingredient_id = recipeingredient.ingredient_id\nGROUP BY ingredient.ingredient_id\nORDER BY recipe_count DESC;\n",
+      "queryRawResponse": "[('Vegetables', 2), ('Ground Beef', 2), ('Eggs', 1), ('Flour', 1), ('Bananas', 1), ('Lettuce', 1), ('Cheese', 1), ('Taco Shells', 1), ('Curry Powder', 1), ('Chicken', 1), ('Tomato Sauce', 1), ('Spaghetti', 1)]",
+      "friendlyResponse": "Vegetables and ground beef are the most popular ingredients, appearing in two recipes each.",
+      "error": "None"
+    },
+    {
+      "question": "Which recipes fall under the 'Easy' difficulty category?",
+      "sql": "\nSELECT recipe_name\nFROM recipe\nWHERE difficulty = 'Easy';\n",
+      "queryRawResponse": "[('Spaghetti Bolognese',), ('Vegetable Stir Fry',), ('Greek Salad',), ('Banana Pancakes',), ('Ice Cream',), ('Pizza',), ('Fruit Salad',), ('Cesar Salad',), ('Frog Eye Salad',)]",
+      "friendlyResponse": "Sure! Here are some easy recipes: Spaghetti Bolognese, Vegetable Stir Fry, Greek Salad, Banana Pancakes, Ice Cream, Pizza, Fruit Salad, Caesar Salad, and Frog Eye Salad.",
+      "error": "None"
+    },
+    {
+      "question": "Which ingredients are specific to a single recipe?",
+      "sql": "\nSELECT ingredient_name\nFROM ingredient\nWHERE ingredient_id IN (\n    SELECT ingredient_id\n    FROM recipeingredient\n    GROUP BY ingredient_id\n    HAVING COUNT(DISTINCT recipe_id) = 1\n);\n",
+      "queryRawResponse": "[('Spaghetti',), ('Tomato Sauce',), ('Chicken',), ('Curry Powder',), ('Taco Shells',), ('Cheese',), ('Lettuce',), ('Bananas',), ('Flour',), ('Eggs',)]",
+      "friendlyResponse": "Certainly! Unique ingredients for a recipe are: Spaghetti, Tomato Sauce, Chicken, Curry Powder, Taco Shells, Cheese, Lettuce, Bananas, Flour, Eggs.",
+      "error": "None"
+    }
+  ]
+}
